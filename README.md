@@ -12,22 +12,14 @@ ordenados por relevancia, con enlace de descarga y fragmento resaltado.
 - MySQL 8 (o compatible).
 - Composer.
 
-## Instalacion
-
-```bash
-composer install
-```
-
-## Base de datos
-
-El schema (tablas `documentos`, `diccionario`, `posting`) esta en
-`sql/schema.sql` y crea la base de datos `buscador_ir` si no existe:
-
-```bash
-mysql -u root -p < sql/schema.sql
-```
-
 ## Variables de entorno
+
+`src/Support/Database.php` es el unico lugar del codigo que lee estas
+variables (via `getenv()`); si no estan definidas, usa los valores por
+defecto de la tabla. **No hay soporte de archivo `.env`** todavia (el
+`.gitignore` lo excluye por si en el futuro se agrega una libreria como
+`vlucas/phpdotenv`, pero hoy mismo no se lee ninguno): hay que definirlas en
+el sistema operativo o en la terminal, como se explica mas abajo.
 
 | Variable            | Default                      | Uso                                      |
 |---------------------|-------------------------------|-------------------------------------------|
@@ -38,13 +30,165 @@ mysql -u root -p < sql/schema.sql
 | `DB_PASS`           | (vacio)                        | Contrasena de MySQL                       |
 | `UPLOADS_BASE_DIR`  | `<raiz del proyecto>/storage/uploads` | Carpeta donde se guardan los .txt subidos |
 
-## Arranque
+`DB_PASS` es la que mas problemas suele dar: si tu usuario de MySQL tiene
+contrasena y esta variable no esta definida (o esta vacia), la conexion
+falla con `Access denied for user 'root'@'localhost' (using password: NO)`.
+Puedes definirla de tres formas, de menos a mas permanente:
 
-```bash
+1. **Solo para un comando** (no queda en el historial de variables de la
+   sesion, pero hay que repetirla cada vez).
+2. **Para toda la sesion de terminal actual** (alcanza con definirla una vez
+   antes de levantar el servidor o correr el CLI; se pierde al cerrar esa
+   terminal).
+3. **Persistente a nivel de usuario del sistema operativo** (sobrevive a
+   reinicios y a abrir terminales nuevas; es la opcion recomendada para no
+   tener que acordarse de definirla cada vez). En una maquina compartida,
+   ten en cuenta que queda guardada en texto plano en tu perfil de usuario.
+
+La sintaxis exacta de cada opcion depende del sistema operativo; ver la
+seccion siguiente.
+
+## Puesta en marcha
+
+Instalacion de dependencias, base de datos y arranque del servidor, por
+sistema operativo. Elige la seccion que corresponda a tu entorno.
+
+### Windows (PowerShell)
+
+```powershell
+# 1. Dependencias de PHP
+composer install
+
+# 2. Base de datos (pide la contrasena de root de MySQL)
+Get-Content sql\schema.sql | mysql -u root -p
+
+# 3. Definir DB_PASS para esta terminal (opcion 2 de la tabla anterior)
+$env:DB_PASS = "tu_contrasena"
+
+# 4. Arrancar el servidor
 php -S localhost:8000 -t public
 ```
 
-Y abrir `http://localhost:8000/` en el navegador.
+Abrir `http://localhost:8000/` en el navegador.
+
+Consideraciones propias de Windows:
+
+- **PATH:** si `composer`, `php` o `mysql` no se reconocen como comando,
+  no estan en el `PATH`. Busca `mysql.exe` (normalmente en
+  `C:\Program Files\MySQL\MySQL Server 8.0\bin` o, si usas XAMPP/Laragon,
+  dentro de su carpeta de instalacion) y agrega esa carpeta al `PATH` de tu
+  usuario:
+  ```powershell
+  [Environment]::SetEnvironmentVariable(
+      "Path",
+      [Environment]::GetEnvironmentVariable("Path", "User") + ";C:\ruta\a\la\carpeta\bin",
+      "User"
+  )
+  ```
+  Despues de modificar el `PATH` (o de instalar algo que lo modifique, como
+  el instalador `.exe` de Composer), **hay que cerrar y volver a abrir toda
+  la ventana de VS Code** (no solo la pestana de terminal): la terminal
+  integrada hereda el `PATH` del proceso de VS Code, que no se actualiza
+  solo.
+- **Redireccion con `<`:** no funciona en PowerShell (`El operador '<' esta
+  reservado para uso futuro`). Usa `Get-Content archivo | mysql ...` en vez
+  de `mysql ... < archivo`, como en el paso 2 de arriba.
+- **Persistir `DB_PASS` entre sesiones** (opcion 3): mismo patron que el
+  `PATH`, pero con la variable `DB_PASS` en vez de `Path`:
+  ```powershell
+  [Environment]::SetEnvironmentVariable("DB_PASS", "tu_contrasena", "User")
+  ```
+  Tambien requiere reabrir la terminal/VS Code para que aplique.
+- Si corres `php -S` desde la terminal integrada de VS Code y luego abres el
+  archivo del proyecto en el editor con rutas que contienen `Búsqueda y
+  Recuperación...` (tildes y enies), no hay problema: PHP las maneja bien
+  siempre que la terminal use UTF-8 (el valor por defecto en Windows 10/11).
+
+### Linux / WSL (terminal de Ubuntu)
+
+```bash
+# 1. Dependencias del sistema (si no estan instaladas)
+sudo apt update
+sudo apt install php php-mbstring php-sqlite3 php-mysql mysql-server composer
+
+# 2. Arrancar el servicio de MySQL (en WSL no arranca solo al iniciar la terminal)
+sudo service mysql start
+
+# 3. Dependencias de PHP del proyecto
+composer install
+
+# 4. Base de datos (pide la contrasena de root de MySQL)
+mysql -u root -p < sql/schema.sql
+
+# 5. Definir DB_PASS para esta sesion
+export DB_PASS="tu_contrasena"
+
+# 6. Arrancar el servidor
+php -S localhost:8000 -t public
+```
+
+Abrir `http://localhost:8000/` en el navegador (en WSL, `localhost` apunta
+automaticamente a Windows desde WSL2 en versiones recientes).
+
+Consideraciones propias de Linux/WSL:
+
+- En una instalacion nueva de MySQL via `apt`, `root` suele autenticarse con
+  `sudo mysql` (plugin `auth_socket`), sin pedir contrasena. Si es tu caso,
+  usa `sudo mysql` para el paso 4 y deja `DB_PASS` vacio, o crea un usuario
+  con contrasena dedicado al proyecto.
+- Si el proyecto vive en el sistema de archivos de Windows (p. ej.
+  `/mnt/c/Users/...`) en vez de dentro del filesystem nativo de WSL,
+  `composer install` y `php -S` funcionan igual, pero son notablemente mas
+  lentos por la capa de traduccion de `/mnt/c`. Si la velocidad es un
+  problema, clona el repo dentro de `~/` (filesystem nativo de WSL) en vez
+  de usar la carpeta de Windows.
+- **Persistir `DB_PASS` entre sesiones** (opcion 3): agrega la linea al
+  final de `~/.bashrc` (o `~/.zshrc` si usas zsh) y luego `source ~/.bashrc`:
+  ```bash
+  echo 'export DB_PASS="tu_contrasena"' >> ~/.bashrc
+  source ~/.bashrc
+  ```
+
+### macOS
+
+```bash
+# 1. Dependencias (con Homebrew; instalar Homebrew primero si no lo tienes)
+brew install php mysql composer
+
+# 2. Arrancar MySQL como servicio
+brew services start mysql
+
+# 3. Dependencias de PHP del proyecto
+composer install
+
+# 4. Base de datos (pide la contrasena de root de MySQL)
+mysql -u root -p < sql/schema.sql
+
+# 5. Definir DB_PASS para esta sesion
+export DB_PASS="tu_contrasena"
+
+# 6. Arrancar el servidor
+php -S localhost:8000 -t public
+```
+
+Abrir `http://localhost:8000/` en el navegador.
+
+Consideraciones propias de macOS:
+
+- Una instalacion nueva de MySQL via Homebrew normalmente deja a `root` sin
+  contrasena; en ese caso deja `DB_PASS` vacio (o sin definir) y usa
+  `mysql -u root` sin `-p`.
+- **Persistir `DB_PASS` entre sesiones** (opcion 3): igual que en Linux, en
+  el archivo de configuracion de tu shell (`~/.zshrc` por defecto desde
+  macOS Catalina en adelante, `~/.bash_profile` si usas bash):
+  ```bash
+  echo 'export DB_PASS="tu_contrasena"' >> ~/.zshrc
+  source ~/.zshrc
+  ```
+- Si `composer`/`php`/`mysql` no se reconocen tras instalarlos con Homebrew,
+  revisa que `/opt/homebrew/bin` (Apple Silicon) o `/usr/local/bin` (Intel)
+  este en tu `PATH`; `brew install` suele dejarlo configurado solo, pero
+  puede requerir abrir una terminal nueva para que aplique.
 
 ## Reindexar por CLI
 
@@ -89,7 +233,7 @@ src/Support/         Database (unico punto que lee variables de entorno de conex
 scripts/reindex.php  Envoltorio CLI delgado sobre App\Indexing\Reindexer
 sql/schema.sql       Schema de MySQL (documentos, diccionario, posting)
 storage/uploads/     Carpeta donde se guardan los .txt subidos (fuera de public/)
-samples/             5 documentos de prueba en español
+samples/             8 documentos de prueba en español
 tests/               Indexing, Search, Storage, EndToEnd (PHPUnit)
 docs/                Captura de una busqueda, para el entregable
 ```

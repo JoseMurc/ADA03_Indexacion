@@ -13,6 +13,12 @@ $query = trim($_GET['q'] ?? '');
 $resultado = $query !== '' ? $searchService->search($query) : null;
 $totalCorpus = $resultado?->totalDocumentos ?? $documentRepository->count();
 
+/** Variantes acentuadas de cada letra, ya que los tokens llegan sin diacriticos (ver TextNormalizer). */
+const EQUIVALENCIAS_ACENTOS = [
+    'a' => '[aàáâäã]', 'e' => '[eèéêë]', 'i' => '[iìíîï]',
+    'o' => '[oòóôöõ]', 'u' => '[uùúûü]', 'n' => '[nñ]', 'c' => '[cç]',
+];
+
 function resaltarTexto(string $texto, array $tokens): string
 {
     $limpio = htmlspecialchars($texto, ENT_QUOTES, 'UTF-8');
@@ -22,7 +28,16 @@ function resaltarTexto(string $texto, array $tokens): string
         return $limpio;
     }
 
-    $patron = '/\b(' . implode('|', array_map(fn ($t) => preg_quote($t, '/'), $unicos)) . ')\b/iu';
+    $patrones = array_map(function (string $token): string {
+        $letras = preg_split('//u', $token, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return implode('', array_map(
+            fn (string $letra) => EQUIVALENCIAS_ACENTOS[$letra] ?? preg_quote($letra, '/'),
+            $letras,
+        ));
+    }, $unicos);
+
+    $patron = '/\b(' . implode('|', $patrones) . ')\b/iu';
 
     return preg_replace($patron, '<mark>$1</mark>', $limpio) ?? $limpio;
 }
