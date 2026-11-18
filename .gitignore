@@ -1,0 +1,10 @@
+/vendor/
+composer.phar
+.phpunit.result.cache
+.phpunit.cache/
+*.zip
+.env
+.idea/
+.vscode/
+/storage/uploads/*
+!/storage/uploads/.gitkeep
