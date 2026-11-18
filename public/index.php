@@ -47,13 +47,13 @@ function resaltarTexto(string $texto, array $tokens): string
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Buscador - ADA 03</title>
+    <title>Buscador - ADA 04</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
         <header class="header">
-            <h1>Buscador Documental TF-IDF</h1>
+            <h1>Buscador Documental FULLTEXT</h1>
             <p class="subtitle">Documentos indexados: <strong><?= $totalCorpus ?></strong></p>
         </header>
 
@@ -110,7 +110,7 @@ function resaltarTexto(string $texto, array $tokens): string
                             </div>
                         <?php else: ?>
                             <?php foreach ($resultado->resultados as $i => $doc): ?>
-                                <?php $pct = min(100, max(0, $doc->coseno * 100)); ?>
+                                <?php $pct = 0; ?>
                                 <article class="card result-card">
                                     <div class="result-top">
                                         <div class="result-title-group">
@@ -118,14 +118,15 @@ function resaltarTexto(string $texto, array $tokens): string
                                             <h3 class="doc-title"><?= htmlspecialchars($doc->archivo, ENT_QUOTES, 'UTF-8') ?></h3>
                                         </div>
                                         <div class="score-box">
-                                            <span class="score-value"><?= number_format($pct, 2) ?>%</span>
-                                            <span class="score-label">cos: <?= number_format($doc->coseno, 4) ?> · tf-idf: <?= number_format($doc->tfidf, 4) ?></span>
+                                            <span class="score-value"> 
+                                            	<?= number_format($doc->coseno, 4) ?> 
+                                            </span>
+                                            <span class="score-label">
+                                            	Relevancia MySQL FULLTEXT 
+                                            </span>
                                         </div>
                                     </div>
 
-                                    <div class="relevance-bar">
-                                        <div class="relevance-fill" style="width: <?= $pct ?>%"></div>
-                                    </div>
 
                                     <?php if ($doc->fragmento !== ''): ?>
                                         <blockquote class="snippet">

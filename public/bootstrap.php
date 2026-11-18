@@ -5,9 +5,9 @@ declare(strict_types=1);
 require __DIR__ . '/../vendor/autoload.php';
 
 use App\Indexing\Reindexer;
-use App\Search\PostingsRepository;
 use App\Search\SearchService;
-use App\Search\TfIdfScorer;
+use App\Search\FulltextRepository;
+use App\Search\FulltextSearchService;
 use App\Storage\DocumentRepository;
 use App\Storage\FileLocator;
 use App\Storage\UploadService;
@@ -31,7 +31,6 @@ $uploadService = new UploadService(
     static fn (): array => (new Reindexer($pdo, $fileLocator->baseDir()))->run(),
 );
 
-$searchService = new SearchService(
-    new PostingsRepository($pdo),
-    new TfIdfScorer(),
+$searchService = new FulltextSearchService(
+    new FulltextRepository($pdo)
 );
